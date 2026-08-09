@@ -1,0 +1,248 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "install-server-deps",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"install",
+				"--save",
+				"cors",
+				"nodemon",
+				"express",
+				"socket.io"
+			],
+			"group": "none"
+		},
+		{
+			"label": "install-server-deps-in-server",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\\server\" && npm.cmd install --save cors nodemon express socket.io"
+			],
+			"group": "none"
+		},
+		{
+			"label": "cleanup-root-npm-artifacts",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\" && if exist package.json del /f /q package.json && if exist package-lock.json del /f /q package-lock.json && if exist node_modules rmdir /s /q node_modules"
+			],
+			"group": "none"
+		},
+		{
+			"label": "install-client-chat-deps",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\\client\" && npm.cmd install --save react-router socket.io-client react-scroll-to-bottom react-emoji query-string"
+			],
+			"group": "none"
+		},
+		{
+			"label": "list-client-scripts",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\\client\" && npm.cmd run"
+			],
+			"group": "none"
+		},
+		{
+			"label": "verify-client-build",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\\client\" && npm.cmd run build"
+			],
+			"group": "none"
+		},
+		{
+			"label": "verify-client-build-after-jsx-fix",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\\client\" && npm.cmd run build"
+			],
+			"group": "none"
+		},
+		{
+			"label": "verify-client-build-final",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\\client\" && npm.cmd run build"
+			],
+			"group": "none"
+		},
+		{
+			"label": "free-port-5000",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$conn = Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue; if ($conn) { $pids = $conn | Select-Object -ExpandProperty OwningProcess -Unique; foreach ($id in $pids) { Write-Output \"Stopping PID $id on port 5000\"; Stop-Process -Id $id -Force -ErrorAction SilentlyContinue } } else { Write-Output \"No active listener on port 5000\" }; $remaining = Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue; if ($remaining) { Write-Output \"Port 5000 is still in use\" } else { Write-Output \"Port 5000 is now free\" }"
+			],
+			"group": "none"
+		},
+		{
+			"label": "check-port-5000",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$conn = Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue; if ($conn) { $conn | Select-Object LocalAddress,LocalPort,OwningProcess | Format-Table -AutoSize } else { Write-Output \"PORT_5000_FREE\" }"
+			],
+			"group": "none"
+		},
+		{
+			"label": "check-common-dev-ports",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$ports = 5000,5001,5002,5003,3000,5173; foreach ($p in $ports) { $c = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue; if ($c) { Write-Output \"$p IN_USE\" } else { Write-Output \"$p FREE\" } }"
+			],
+			"group": "none"
+		},
+		{
+			"label": "verify-server-router-restore",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\\server\" && npm.cmd start"
+			],
+			"group": "none"
+		},
+		{
+			"label": "scan-server-ports",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$ports = 5002..5010; foreach ($p in $ports) { $c = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue; if ($c) { Write-Output \"$p IN_USE\" } else { Write-Output \"$p FREE\" } }"
+			],
+			"group": "none"
+		},
+		{
+			"label": "verify-fixed-port-server",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\\server\" && npm.cmd start"
+			],
+			"group": "none"
+		},
+		{
+			"label": "check-port-5006",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$c = Get-NetTCPConnection -LocalPort 5006 -State Listen -ErrorAction SilentlyContinue; if ($c) { $c | Select-Object LocalAddress,LocalPort,OwningProcess | Format-Table -AutoSize } else { Write-Output 'PORT_5006_FREE' }"
+			],
+			"group": "none"
+		},
+		{
+			"label": "free-stale-server-port",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Stop-Process -Id 19268 -Force -ErrorAction SilentlyContinue; $c = Get-NetTCPConnection -LocalPort 5006 -State Listen -ErrorAction SilentlyContinue; if ($c) { Write-Output 'PORT_5006_STILL_IN_USE' } else { Write-Output 'PORT_5006_FREE' }"
+			],
+			"group": "none"
+		},
+		{
+			"label": "identify-port-5006-owner",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Get-NetTCPConnection -LocalPort 5006 -State Listen | Select-Object LocalAddress,LocalPort,OwningProcess | Format-Table -AutoSize"
+			],
+			"group": "none"
+		},
+		{
+			"label": "confirm-port-5006-free",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$c = Get-NetTCPConnection -LocalPort 5006 -State Listen -ErrorAction SilentlyContinue; if ($c) { $c | Select-Object LocalAddress,LocalPort,OwningProcess | Format-Table -AutoSize } else { Write-Output 'PORT_5006_FREE' }"
+			],
+			"group": "none"
+		},
+		{
+			"label": "force-kill-pid-22084",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"taskkill /F /PID 22084"
+			],
+			"group": "none"
+		},
+		{
+			"label": "recheck-port-5006-free",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$c = Get-NetTCPConnection -LocalPort 5006 -State Listen -ErrorAction SilentlyContinue; if ($c) { $c | Select-Object LocalAddress,LocalPort,OwningProcess | Format-Table -AutoSize } else { Write-Output 'PORT_5006_FREE' }"
+			],
+			"group": "none"
+		},
+		{
+			"label": "start-server-fixed-port",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\\server\" && npm.cmd start"
+			],
+			"group": "none"
+		},
+		{
+			"label": "git-status",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\" && git status --short --branch"
+			],
+			"group": "none"
+		},
+		{
+			"label": "git-remote",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d \"c:\\Users\\disco\\Projects\\Chat-App - Realtime\\Chat-App\" && git remote -v"
+			],
+			"group": "none"
+		}
+	]
+}
