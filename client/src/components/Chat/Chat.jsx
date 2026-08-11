@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import io from 'socket.io-client';
 
 import './Chat.css';
@@ -8,18 +8,33 @@ const ENDPOINT = 'http://localhost:5006';
 
 const Chat = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const params = new URLSearchParams(location.search);
     const name = params.get('name') || 'Guest';
     const room = params.get('room') || 'General';
     const [isConnected, setIsConnected] = useState(false);
+    const [message, setMessage] = useState('');
+    const [messages, setMessages] = useState([]);
+    const socketRef = useRef(null);
+    const messagesEndRef = useRef(null);
 
     useEffect(() => {
-        const socket = io(ENDPOINT, { transports: ['websocket'] });
+        const socket = io(ENDPOINT);
+        socketRef.current = socket;
 
         socket.on('connect', () => {
             setIsConnected(true);
-            socket.emit('join', { name, room });
+            socket.emit('join', { name, room }, (error) => {
+                if (error) {
+                    socket.disconnect();
+                    navigate('/', { state: { joinError: error } });
+                }
+            });
             console.log(`Connected to server as ${name} in ${room}`);
+        });
+
+        socket.on('message', (incomingMessage) => {
+            setMessages((currentMessages) => [...currentMessages, incomingMessage]);
         });
 
         socket.on('disconnect', () => {
@@ -27,10 +42,32 @@ const Chat = () => {
             console.log('Disconnected from server');
         });
 
+        socket.on('connect_error', (error) => {
+            setIsConnected(false);
+            console.error('Socket connection error:', error.message);
+        });
+
         return () => {
+            socketRef.current = null;
             socket.disconnect();
         };
-    }, [name, room]);
+    }, [name, room, navigate]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const sendMessage = (event) => {
+        event.preventDefault();
+
+        if (!message.trim() || !socketRef.current) {
+            return;
+        }
+
+        socketRef.current.emit('sendMessage', message, () => {
+            setMessage('');
+        });
+    };
 
     return (
         <main className='chat-page'>
@@ -62,19 +99,27 @@ const Chat = () => {
                     </header>
 
                     <div className='chat-messages'>
-                        <article className='message message-incoming'>
-                            <span className='message-author'>System</span>
-                            <p>Welcome to {room}. This area is styled for live chat content.</p>
-                        </article>
-                        <article className='message message-outgoing'>
-                            <span className='message-author'>{name}</span>
-                            <p>Looks much better already.</p>
-                        </article>
+                        {messages.map((item, index) => (
+                            <article
+                                className={`message ${item.user === name ? 'message-outgoing' : 'message-incoming'}`}
+                                key={`${item.user}-${index}-${item.text}`}
+                            >
+                                <span className='message-author'>{item.user}</span>
+                                <p>{item.text}</p>
+                            </article>
+                        ))}
+                        <div ref={messagesEndRef} />
                     </div>
 
-                    <form className='chat-composer'>
-                        <input className='chat-input' type='text' placeholder='Type a message...' />
-                        <button className='chat-send-button' type='button'>Send</button>
+                    <form className='chat-composer' onSubmit={sendMessage}>
+                        <input
+                            className='chat-input'
+                            type='text'
+                            placeholder='Type a message...'
+                            value={message}
+                            onChange={(event) => setMessage(event.target.value)}
+                        />
+                        <button className='chat-send-button' type='submit'>Send</button>
                     </form>
                 </section>
             </section>

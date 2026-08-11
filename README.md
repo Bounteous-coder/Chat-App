@@ -1,84 +1,81 @@
 # Real-Time Chat Application
 
-A full-stack real-time messaging platform designed to support
-private and group conversations with persistent messaging,
-authentication, and real-time communication.
+A realtime group chat app built with React and Socket.IO. Users pick a
+display name and a room, then exchange messages live with everyone else
+in that room.
 
 ## Features
 
-- JWT-based authentication
-- Private and group conversations
-- Real-time messaging with WebSockets
-- Online/offline presence
-- Typing indicators
-- Read receipts
-- Message editing and deletion
-- Message search
-- File/image sharing
-- Redis-backed rate limiting
-- Responsive UI
+- Join a named chat room by display name + room name
+- Realtime messaging over WebSockets (Socket.IO)
+- Join/leave system messages broadcast to the room
+- Duplicate name-in-room protection
+- Responsive, styled UI (no component library)
 
 ## Tech Stack
 
 Frontend:
-- React
-- TypeScript
-- Tailwind CSS
+- React 19 (Vite)
+- react-router-dom
 
 Backend:
 - Node.js
 - Express
 - Socket.IO
 
-Database:
-- PostgreSQL
-- Redis
+## Project Structure
 
-Authentication:
-- JWT
-- bcrypt
+```
+client/   React + Vite frontend
+server/   Express + Socket.IO backend
+```
 
-Deployment:
-- Docker
-- [your hosting platform]
+## Running locally
 
-## Architecture
+Server (defaults to port 5006):
 
-[architecture diagram]
+```
+cd server
+npm install
+npm start
+```
 
-## Screenshots
+Client (defaults to port 5173):
 
-[images]
+```
+cd client
+npm install
+npm run dev
+```
+
+Set `CLIENT_ORIGIN` in the server environment if the client isn't running
+on the default Vite port, so CORS allows the connection.
 
 ## How It Works
 
-### Authentication
+### Joining a room
 
-Explain how login works.
+The Join screen collects a name and room, then navigates to `/chat` with
+both as query params. On mount, `Chat` opens a Socket.IO connection and
+emits a `join` event; the server adds the user to an in-memory room
+registry and acknowledges. If the name is already taken in that room, the
+server returns an error and the client is redirected back to Join.
 
-### Real-Time Messaging
+### Realtime Messaging
 
-Explain how WebSockets work.
+Messages are emitted over the socket connection and broadcast server-side
+to everyone in the same room via Socket.IO rooms. There's no message
+history — messages exist only for the duration of the connection.
 
-### Message Persistence
+## Known Limitations
 
-Explain how messages are stored.
-
-### Redis
-
-Explain why Redis is used.
-
-## Challenges & Design Decisions
-
-### Challenge 1: ...
-How I solved it...
-
-### Challenge 2: ...
-How I solved it...
+- No message persistence (in-memory only, resets on server restart)
+- No authentication — anyone can join with any name
+- No typing indicators, read receipts, or file sharing
 
 ## Future Improvements
 
-- Message encryption
-- Horizontal WebSocket scaling
-- Push notifications
-- Voice/video calls
+- Persist users/messages to a database
+- Authentication
+- Typing indicators
+- Room presence list
