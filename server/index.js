@@ -14,6 +14,11 @@ app.use('/', router);
 io.on('connection', (socket) => {
 	console.log(`New connection made: ${socket.id}`);
 
+	socket.on('join', ({ name, room }) => {
+		socket.join(room);
+		console.log(`${name} joined room ${room}`);
+	});
+
 	socket.on('disconnect', () => {
 		console.log(`User left: ${socket.id}`);
 	});
