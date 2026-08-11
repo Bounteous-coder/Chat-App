@@ -1,11 +1,23 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const socketIo = require('socket.io');
-const http = require("http");
+const http = require('http');
 
-const {addUser, removeUser, getUser, getUsersInRoom} = require('./users.js');
+const prisma = require('./prisma/client');
+const { socketAuth } = require('./auth/middleware');
+const { checkLimit } = require('./rateLimit');
+const presence = require('./presence');
+const { serializeMessage } = require('./serializers');
 
 const router = require('./router');
+const authRouter = require('./routes/auth');
+const conversationsRouter = require('./routes/conversations');
+const messagesRouter = require('./routes/messages');
+const usersRouter = require('./routes/users');
+const filesRouter = require('./routes/files');
 
 const PORT = Number(process.env.PORT) || 5006;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
@@ -16,45 +28,122 @@ const io = socketIo(server, {
 	cors: {
 		origin: CLIENT_ORIGIN,
 		methods: ['GET', 'POST'],
+		credentials: true,
 	},
 });
 
-app.use(cors({ origin: CLIENT_ORIGIN }));
+app.set('io', io);
+
+app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
+app.use(express.json());
+app.use(cookieParser());
+
 app.use('/', router);
+app.use('/api/auth', authRouter);
+app.use('/api/conversations', conversationsRouter);
+app.use('/api/messages', messagesRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/files', filesRouter);
 
-io.on('connection', (socket) => {
-	console.log(`New connection made: ${socket.id}`);
+io.use(socketAuth);
 
-	socket.on('join', ({ name, room }, callback) => {
-		const { error, user} = addUser({id: socket.id, name, room});
+const PRESENCE_OFFLINE_GRACE_MS = 3000;
 
-		if(error) return callback(error);
-		socket.emit('message', {user: 'admin', text: `${user.name}, welcome to the room ${user.room}`})
-		socket.broadcast.to(user.room).emit('message', {user: 'admin', text: `${user.name}, has joined!`});
+io.on('connection', async (socket) => {
+	const { id: userId, username } = socket.user;
 
-		socket.join(user.room);
+	console.log(`Socket connected: ${socket.id} (${username})`);
 
-		callback();
+	socket.join(`user:${userId}`);
+
+	const participantRows = await prisma.conversationParticipant.findMany({
+		where: { userId },
+		select: { conversationId: true },
 	});
+	const conversationIds = participantRows.map((p) => p.conversationId);
+	conversationIds.forEach((id) => socket.join(`conversation:${id}`));
 
-	socket.on('sendMessage', (message, callback) => {
-		const user = getUser(socket.id);
+	const justCameOnline = presence.addSocket(userId, socket.id);
+	if (justCameOnline) {
+		conversationIds.forEach((id) =>
+			socket.to(`conversation:${id}`).emit('presence:update', { userId, online: true })
+		);
+	}
 
-		if (!user) return callback('You must join a room before sending messages');
+	const inConversation = (conversationId) => socket.rooms.has(`conversation:${conversationId}`);
 
-		io.to(user.room).emit('message', {user: user.name, text: message});
+	socket.on('message:send', async ({ conversationId, body }, callback) => {
+		const ack = typeof callback === 'function' ? callback : () => {};
 
-		callback();
-	})
-
-	socket.on('disconnect', () => {
-		const user = removeUser(socket.id);
-
-		if (user) {
-			io.to(user.room).emit('message', {user: 'admin', text: `${user.name} has left.`});
+		if (!inConversation(conversationId)) {
+			return ack({ error: 'Not a participant of this conversation' });
 		}
 
-		console.log(`User left: ${socket.id}`);
+		const text = (body || '').toString().trim();
+		if (!text) return ack({ error: 'Message body is required' });
+
+		const { allowed } = checkLimit(`message:${userId}`, { limit: 20, windowMs: 10_000 });
+		if (!allowed) return ack({ error: 'Sending too fast, slow down' });
+
+		const message = await prisma.message.create({
+			data: { conversationId, senderId: userId, body: text },
+			include: { sender: true, attachments: true },
+		});
+
+		const serialized = serializeMessage(message);
+		io.to(`conversation:${conversationId}`).emit('message:new', serialized);
+		ack({ message: serialized });
+	});
+
+	socket.on('typing:start', ({ conversationId }) => {
+		if (!inConversation(conversationId)) return;
+		socket.to(`conversation:${conversationId}`).emit('typing:update', {
+			conversationId,
+			userId,
+			username,
+			typing: true,
+		});
+	});
+
+	socket.on('typing:stop', ({ conversationId }) => {
+		if (!inConversation(conversationId)) return;
+		socket.to(`conversation:${conversationId}`).emit('typing:update', {
+			conversationId,
+			userId,
+			username,
+			typing: false,
+		});
+	});
+
+	socket.on('conversation:markRead', async ({ conversationId }) => {
+		if (!inConversation(conversationId)) return;
+
+		const updated = await prisma.conversationParticipant.updateMany({
+			where: { userId, conversationId },
+			data: { lastReadAt: new Date() },
+		});
+
+		if (updated.count === 0) return;
+
+		io.to(`conversation:${conversationId}`).emit('conversation:read', {
+			conversationId,
+			userId,
+			lastReadAt: new Date().toISOString(),
+		});
+	});
+
+	socket.on('disconnect', () => {
+		console.log(`Socket disconnected: ${socket.id} (${username})`);
+
+		const justWentOffline = presence.removeSocket(userId, socket.id);
+		if (!justWentOffline) return;
+
+		setTimeout(() => {
+			if (presence.isOnline(userId)) return;
+			conversationIds.forEach((id) =>
+				io.to(`conversation:${id}`).emit('presence:update', { userId, online: false })
+			);
+		}, PRESENCE_OFFLINE_GRACE_MS);
 	});
 });
 
@@ -70,7 +159,7 @@ const shutdown = (signal) => {
 
 	io.close(() => {
 		server.close(() => {
-			process.exit(0);
+			prisma.$disconnect().finally(() => process.exit(0));
 		});
 	});
 };
