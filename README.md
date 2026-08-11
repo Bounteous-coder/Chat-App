@@ -5,7 +5,7 @@ and group conversations, live messaging, presence, typing indicators,
 read receipts, message editing/deletion, full-text search, and file
 sharing.
 
-**Live app**: https://chat-app-mu-gules-12.vercel.app
+**Live app**: https://numans-realtime-chatting.vercel.app
 **API**: https://server-production-e63a.up.railway.app
 
 Frontend is deployed on Vercel, backend + Postgres on Railway; both
